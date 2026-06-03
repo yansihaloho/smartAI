@@ -39,7 +39,7 @@ router.get("/laporan", async (req, res): Promise<void> => {
           eq(lotteryResultsTable.pasaran, pasaran),
           like(lotteryResultsTable.tanggal, `%${slot}%`),
         ))
-        .orderBy(desc(lotteryResultsTable.id))
+        .orderBy(desc(lotteryResultsTable.periode))
         .limit(days + 10); // a few extra for edge cases
 
       allDrawsBySlot[slot] = rows.map(r => ({
@@ -94,7 +94,7 @@ router.post("/laporan/force-evaluate", async (req, res): Promise<void> => {
           eq(lotteryResultsTable.pasaran, pasaran),
           like(lotteryResultsTable.tanggal, `%${slot}%`),
         ))
-        .orderBy(desc(lotteryResultsTable.id))
+        .orderBy(desc(lotteryResultsTable.periode))
         .limit(days + 10);
 
       allDrawsBySlot[slot] = rows.map(r => ({

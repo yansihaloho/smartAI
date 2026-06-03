@@ -69,7 +69,7 @@ router.post("/predict", async (req, res): Promise<void> => {
       .select()
       .from(lotteryResultsTable)
       .where(eq(lotteryResultsTable.pasaran, pasaran))
-      .orderBy(desc(lotteryResultsTable.id));
+      .orderBy(desc(lotteryResultsTable.periode));
 
     if (dbRows.length >= 10) {
       drawData = dbRows.map((r) => ({

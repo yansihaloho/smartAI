@@ -31,7 +31,7 @@ router.post("/deep/analyze", async (req, res): Promise<void> => {
       .select()
       .from(lotteryResultsTable)
       .where(eq(lotteryResultsTable.pasaran, pasaran))
-      .orderBy(desc(lotteryResultsTable.id));
+      .orderBy(desc(lotteryResultsTable.periode));
 
     if (dbRows.length >= 5) {
       const allDrawData = dbRows.map((r) => ({

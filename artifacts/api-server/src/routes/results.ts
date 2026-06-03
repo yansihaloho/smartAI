@@ -59,7 +59,7 @@ router.get("/results/stats", async (req, res): Promise<void> => {
       })
       .from(lotteryResultsTable)
       .where(eq(lotteryResultsTable.pasaran, pasaran))
-      .orderBy(desc(lotteryResultsTable.id));
+      .orderBy(desc(lotteryResultsTable.periode));
     req.log.info({ pasaran, totalDraws: rows.length }, "Loaded ALL draws for stats");
   } catch (err) {
     req.log.warn({ err }, "DB query failed for stats");
@@ -233,7 +233,7 @@ router.get("/results", async (req, res): Promise<void> => {
       .select()
       .from(lotteryResultsTable)
       .where(eq(lotteryResultsTable.pasaran, pasaran))
-      .orderBy(desc(lotteryResultsTable.id))
+      .orderBy(desc(lotteryResultsTable.periode))
       .limit(limit);
     formatted = rows.map((r) => ({
       ...r,
@@ -273,7 +273,7 @@ router.get("/results", async (req, res): Promise<void> => {
           .select()
           .from(lotteryResultsTable)
           .where(eq(lotteryResultsTable.pasaran, pasaran))
-          .orderBy(desc(lotteryResultsTable.id))
+          .orderBy(desc(lotteryResultsTable.periode))
           .limit(limit);
         const out = freshRows.map((r) => ({
           ...r,

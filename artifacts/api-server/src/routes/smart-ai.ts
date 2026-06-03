@@ -62,7 +62,7 @@ router.get("/smart-ai/analyze", async (req, res): Promise<void> => {
         eq(lotteryResultsTable.pasaran, pasaran),
         like(lotteryResultsTable.tanggal, slotPattern),
       ))
-      .orderBy(desc(lotteryResultsTable.id))
+      .orderBy(desc(lotteryResultsTable.periode))
       .limit(500);
 
     const slotDraws: DrawRecord[] = allSlotRows.map(r => ({
@@ -98,7 +98,7 @@ router.get("/smart-ai/analyze", async (req, res): Promise<void> => {
             eq(lotteryResultsTable.pasaran, pasaran),
             like(lotteryResultsTable.tanggal, `%${prevSlot}%`),
           ))
-          .orderBy(desc(lotteryResultsTable.id))
+          .orderBy(desc(lotteryResultsTable.periode))
           .limit(1);
         prevSlotResult = prevRow?.result4d ?? "";
       }
@@ -113,7 +113,7 @@ router.get("/smart-ai/analyze", async (req, res): Promise<void> => {
             eq(lotteryResultsTable.pasaran, pasaran),
             like(lotteryResultsTable.tanggal, `%${lastSlot}%`),
           ))
-          .orderBy(desc(lotteryResultsTable.id))
+          .orderBy(desc(lotteryResultsTable.periode))
           .limit(1);
         prevSlotResult = prevRow?.result4d ?? "";
       }

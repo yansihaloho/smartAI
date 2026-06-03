@@ -315,7 +315,25 @@ export function runDeepAnalysis(
     return { digit: String(topD?.i ?? 0), posisi: posPositions[idx] };
   });
 
-  const colokBebas = posGaps.ekor.slice(0, 5).map(g => g.digit);
+  // Colok Bebas: weighted combo dari semua 4 posisi (ekor bobot tertinggi)
+  const colokBebasScores: Record<string, number> = {};
+  for (let d = 0; d <= 9; d++) {
+    const ds = String(d);
+    const ekorScore = (posGaps.ekor.find(g => g.digit === ds)?.score ?? 0) / maxGapScore.ekor;
+    const kepalaScore = (posGaps.kepala.find(g => g.digit === ds)?.score ?? 0) / maxGapScore.kepala;
+    const kopScore = (posGaps.kop.find(g => g.digit === ds)?.score ?? 0) / maxGapScore.kop;
+    const asScore = (posGaps.as.find(g => g.digit === ds)?.score ?? 0) / maxGapScore.as;
+    // Engine score per digit (average over 4 positions)
+    const engScore = ((normEngine.ekor[d] ?? 0) * 0.40 + (normEngine.kepala[d] ?? 0) * 0.30
+      + (normEngine.kop[d] ?? 0) * 0.15 + (normEngine.as[d] ?? 0) * 0.15);
+    // Gap score: ekor 40%, kepala 30%, kop 15%, as 15%
+    const gapScore = ekorScore * 0.40 + kepalaScore * 0.30 + kopScore * 0.15 + asScore * 0.15;
+    colokBebasScores[ds] = engScore * 0.60 + gapScore * 0.40;
+  }
+  const colokBebas = Object.entries(colokBebasScores)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([d]) => d);
   const colokBebas3d = top3d.slice(0, 5);
 
   const last = lastResult || "0000";
@@ -358,7 +376,7 @@ export function runDeepAnalysis(
     return { rank: i + 1, number: item.number, score: item.score, label, color };
   });
 
-  const slotFiltered = timeSlot !== "ALL" && n < 500;
+  const slotFiltered = timeSlot !== "ALL";
 
   const reasons = generateReasons(data, consensus, all2dScores, posGaps, timeSlot, pasaran, slotFiltered);
 
