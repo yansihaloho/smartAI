@@ -3,13 +3,25 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Smart AI Prediksi Togel API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: results
+    description: Lottery result operations
+  - name: predict
+    description: Prediction operations
+  - name: deep
+    description: Deep analysis operations
+  - name: learning
+    description: Self-learning & accuracy operations
+  - name: laporan
+    description: LOO backtest report operations
+  - name: smart-ai
+    description: Smart AI 7-engine operations
 paths:
   /healthz:
     get:
@@ -24,6 +36,343 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /results/pasarans:
+    get:
+      operationId: getPasarans
+      tags: [results]
+      summary: Get available pasarans
+      responses:
+        "200":
+          description: List of pasarans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PasaranItem"
+
+  /results/grouped:
+    get:
+      operationId: getGroupedResults
+      tags: [results]
+      summary: Get results grouped by day
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Grouped results by day
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GroupedDayResult"
+
+  /results:
+    get:
+      operationId: getResults
+      tags: [results]
+      summary: Get flat list of lottery results
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of lottery results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LotteryResult"
+
+  /results/stats:
+    get:
+      operationId: getResultStats
+      tags: [results]
+      summary: Get lottery statistics
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Statistics for lottery results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResultStats"
+
+  /predict/latest:
+    get:
+      operationId: getLatestPrediction
+      tags: [predict]
+      summary: Get latest stored prediction
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Latest prediction result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResult"
+        "404":
+          description: No prediction found
+
+  /predict:
+    post:
+      operationId: runPrediction
+      tags: [predict]
+      summary: Run AI prediction using 100 engines
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PredictionInput"
+      responses:
+        "200":
+          description: Prediction result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionResult"
+
+  /predict/accuracy:
+    get:
+      operationId: getPredictionAccuracy
+      tags: [predict]
+      summary: Get prediction accuracy statistics
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Accuracy statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PredictionAccuracyStats"
+
+  /deep:
+    post:
+      operationId: runDeepAnalysis
+      tags: [deep]
+      summary: Run deep analysis for a specific time slot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeepAnalysisInput"
+      responses:
+        "200":
+          description: Deep analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeepAnalysisResult"
+
+  /learning/log:
+    get:
+      operationId: getLearningLog
+      tags: [learning]
+      summary: Get self-learning evaluation log
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Learning log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningLogResponse"
+
+  /learning/performance:
+    get:
+      operationId: getEnginePerformance
+      tags: [learning]
+      summary: Get engine performance statistics
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Engine performance data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnginePerformanceResponse"
+
+  /learning/evaluate:
+    post:
+      operationId: triggerEvaluate
+      tags: [learning]
+      summary: Trigger evaluation and self-learning
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EvaluateInput"
+      responses:
+        "200":
+          description: Evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluateResult"
+
+  /laporan:
+    get:
+      operationId: getLaporan
+      tags: [laporan]
+      summary: Get LOO backtest laporan
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+        - in: query
+          name: days
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Laporan data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LaporanData"
+
+  /laporan/log:
+    get:
+      operationId: getLaporanLog
+      tags: [laporan]
+      summary: Get auto-evaluation activity log
+      responses:
+        "200":
+          description: Auto log entries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LaporanLogResponse"
+
+  /laporan/force-evaluate:
+    post:
+      operationId: forceEvaluateLaporan
+      tags: [laporan]
+      summary: Force recompute laporan
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForceEvaluateInput"
+      responses:
+        "200":
+          description: Recompute result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LaporanData"
+
+  /smart-ai/analyze:
+    get:
+      operationId: getSmartAI
+      tags: [smart-ai]
+      summary: Run Smart AI 7-engine analysis
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+        - in: query
+          name: slot
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Smart AI analysis result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmartAIResult"
+
+  /smart-ai/slots:
+    get:
+      operationId: getSmartAISlots
+      tags: [smart-ai]
+      summary: Get all slot analyses for a pasaran
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+      responses:
+        "200":
+          description: All slot analyses
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmartAISlotsResponse"
+
+  /smart-ai/weights:
+    get:
+      operationId: getSmartAIWeights
+      tags: [smart-ai]
+      summary: Get Smart AI adaptive engine weights
+      parameters:
+        - in: query
+          name: pasaran
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Smart AI weights
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmartAIWeightsResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +383,1137 @@ components:
       required:
         - status
 
+    LotteryResult:
+      type: object
+      required: [id, pasaran, tanggal, periode, result4d, as, kop, kepala, ekor, result2d, result3d]
+      properties:
+        id:
+          type: integer
+        pasaran:
+          type: string
+        tanggal:
+          type: string
+        periode:
+          type: string
+        result4d:
+          type: string
+        as:
+          type: string
+        kop:
+          type: string
+        kepala:
+          type: string
+        ekor:
+          type: string
+        result2d:
+          type: string
+        result3d:
+          type: string
+
+    AccuracyRecord:
+      type: object
+      required: [days, totalChecked, hit4d, hit3d, hit2d, hitBbfs6, hitColokBebas, winRate4d, winRate3d, winRate2d, winRateBbfs6, winRateColokBebas]
+      properties:
+        days:
+          type: integer
+        totalChecked:
+          type: integer
+        hit4d:
+          type: integer
+        hit3d:
+          type: integer
+        hit2d:
+          type: integer
+        hitBbfs6:
+          type: integer
+        hitColokBebas:
+          type: integer
+        winRate4d:
+          type: number
+        winRate3d:
+          type: number
+        winRate2d:
+          type: number
+        winRateBbfs6:
+          type: number
+        winRateColokBebas:
+          type: number
+
+    RecentScore:
+      type: object
+      required: [date, actual, hit4d, hit3d, hit2d, hitBbfs6, hitColokBebas]
+      properties:
+        date:
+          type: string
+        actual:
+          type: string
+        hit4d:
+          type: boolean
+        hit3d:
+          type: boolean
+        hit2d:
+          type: boolean
+        hitBbfs6:
+          type: boolean
+        hitColokBebas:
+          type: boolean
+
+    PredictionAccuracyStats:
+      type: object
+      required: [pasaran, totalPredictions, totalScored, last7, last30, last90, recentScores]
+      properties:
+        pasaran:
+          type: string
+        totalPredictions:
+          type: integer
+        totalScored:
+          type: integer
+        last7:
+          $ref: "#/components/schemas/AccuracyRecord"
+        last30:
+          $ref: "#/components/schemas/AccuracyRecord"
+        last90:
+          $ref: "#/components/schemas/AccuracyRecord"
+        recentScores:
+          type: array
+          items:
+            $ref: "#/components/schemas/RecentScore"
+
+    PasaranItem:
+      type: object
+      required: [id, nama, kode, jadwal]
+      properties:
+        id:
+          type: integer
+        nama:
+          type: string
+        kode:
+          type: string
+        jadwal:
+          type: string
+
+    SlotMap:
+      type: object
+      properties:
+        "00:01":
+          type: ["string", "null"]
+        "13:00":
+          type: ["string", "null"]
+        "16:00":
+          type: ["string", "null"]
+        "19:00":
+          type: ["string", "null"]
+        "22:00":
+          type: ["string", "null"]
+        "23:00":
+          type: ["string", "null"]
+
+    GroupedDayResult:
+      type: object
+      required: [tanggal, hari, slots]
+      properties:
+        tanggal:
+          type: string
+        hari:
+          type: string
+        slots:
+          $ref: "#/components/schemas/SlotMap"
+
+    ResultStats:
+      type: object
+      required: [pasaran, totalDraws, digitFrequency, positionFrequency, hotNumbers, coldNumbers, lastUpdated]
+      properties:
+        pasaran:
+          type: string
+        totalDraws:
+          type: integer
+        digitFrequency:
+          type: object
+          additionalProperties:
+            type: integer
+        positionFrequency:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: integer
+        hotNumbers:
+          type: array
+          items:
+            type: string
+        coldNumbers:
+          type: array
+          items:
+            type: string
+        lastUpdated:
+          type: string
+        oddEvenDist:
+          type: object
+          properties:
+            odd:
+              type: integer
+            even:
+              type: integer
+        bigSmallDist:
+          type: object
+          properties:
+            big:
+              type: integer
+            small:
+              type: integer
+        twoDigitFrequency:
+          type: object
+          additionalProperties:
+            type: integer
+
+    EngineItem:
+      type: object
+      required: [engineId, engineName, category, digits, confidence, weight]
+      properties:
+        engineId:
+          type: integer
+        engineName:
+          type: string
+        category:
+          type: string
+        digits:
+          type: object
+          properties:
+            as:
+              type: array
+              items:
+                type: string
+            kop:
+              type: array
+              items:
+                type: string
+            kepala:
+              type: array
+              items:
+                type: string
+            ekor:
+              type: array
+              items:
+                type: string
+        confidence:
+          type: number
+        weight:
+          type: number
+
+    EngineContribution:
+      type: object
+      required: [category, contribution]
+      properties:
+        category:
+          type: string
+        contribution:
+          type: number
+
+    TopEngineItem:
+      type: object
+      required: [name, category, weight]
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        weight:
+          type: number
+
+    PredictionResult:
+      type: object
+      required: [pasaran, generatedAt, consensus4d, consensus3d, consensus2d, colokBebas, bbfs5, bbfs6, overallConfidence, engines]
+      properties:
+        pasaran:
+          type: string
+        generatedAt:
+          type: string
+        totalDrawsUsed:
+          type: integer
+        engines:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngineItem"
+        consensus4d:
+          type: array
+          items:
+            type: string
+        consensus3d:
+          type: array
+          items:
+            type: string
+        consensus2d:
+          type: array
+          items:
+            type: string
+        colokBebas:
+          type: array
+          items:
+            type: string
+        bbfs5:
+          type: array
+          items:
+            type: string
+        bbfs6:
+          type: array
+          items:
+            type: string
+        overallConfidence:
+          type: number
+        engineSummary:
+          type: object
+          additionalProperties:
+            type: number
+        explanations:
+          type: array
+          items:
+            type: string
+        engineContributions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngineContribution"
+        topEngines:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopEngineItem"
+
+    PredictionInput:
+      type: object
+      required: [pasaran]
+      properties:
+        pasaran:
+          type: string
+        limit:
+          type: integer
+
+    DigitGapItem:
+      type: object
+      required: [digit, gap, avgGap, freq, trend, score]
+      properties:
+        digit:
+          type: string
+        gap:
+          type: integer
+        avgGap:
+          type: number
+        freq:
+          type: integer
+        trend:
+          type: string
+        score:
+          type: number
+
+    DeepTop5Item:
+      type: object
+      required: [rank, number, score, label, color]
+      properties:
+        rank:
+          type: integer
+        number:
+          type: string
+        score:
+          type: number
+        label:
+          type: string
+        color:
+          type: string
+
+    ColokJituItem:
+      type: object
+      required: [digit, posisi]
+      properties:
+        digit:
+          type: string
+        posisi:
+          type: string
+
+    DeepAnalysisResult:
+      type: object
+      required: [pasaran, timeSlot, lastResult, generatedAt, overallConfidence]
+      properties:
+        pasaran:
+          type: string
+        timeSlot:
+          type: string
+        lastResult:
+          type: string
+        generatedAt:
+          type: string
+        overallConfidence:
+          type: number
+        bbfs3d:
+          type: array
+          items:
+            type: string
+        bbfs5:
+          type: array
+          items:
+            type: string
+        bbfs6:
+          type: array
+          items:
+            type: string
+        prediksi4d:
+          type: array
+          items:
+            type: string
+        prediksi3d:
+          type: array
+          items:
+            type: string
+        pred2dEkor:
+          type: array
+          items:
+            type: string
+        pred2dDepan:
+          type: array
+          items:
+            type: string
+        pred2dTengah:
+          type: array
+          items:
+            type: string
+        colokBebas:
+          type: array
+          items:
+            type: string
+        colokBebas3d:
+          type: array
+          items:
+            type: string
+        colokJitu:
+          type: array
+          items:
+            $ref: "#/components/schemas/ColokJituItem"
+        dasar:
+          type: string
+        tengahTepi:
+          type: string
+        silangHomo:
+          type: string
+        kembangKempis:
+          type: string
+        shio:
+          type: array
+          items:
+            type: string
+        bbni3d:
+          type: string
+        topikon:
+          type: array
+          items:
+            type: string
+        top5:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeepTop5Item"
+        scoreDistribution:
+          type: array
+          items:
+            type: object
+            properties:
+              number:
+                type: string
+              score:
+                type: number
+        ranking2d:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeepTop5Item"
+        totalDrawsUsed:
+          type: integer
+        reasons:
+          type: array
+          items:
+            type: string
+        digitAnalysis:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              topDigits:
+                type: array
+                items:
+                  type: string
+              gaps:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DigitGapItem"
+
+    DeepAnalysisInput:
+      type: object
+      required: [pasaran]
+      properties:
+        pasaran:
+          type: string
+        timeSlot:
+          type: string
+        limit:
+          type: integer
+
+    LearningLogItem:
+      type: object
+      required: [id, actualResult, hit4d, hit3d, hit2d, hitBbfs6, hitColokBebas, createdAt]
+      properties:
+        id:
+          type: integer
+        actualResult:
+          type: string
+        hit4d:
+          type: boolean
+        hit3d:
+          type: boolean
+        hit2d:
+          type: boolean
+        hitBbfs6:
+          type: boolean
+        hitColokBebas:
+          type: boolean
+        asHit:
+          type: boolean
+        kopHit:
+          type: boolean
+        kepalaHit:
+          type: boolean
+        ekorHit:
+          type: boolean
+        predicted4dTop5:
+          type: array
+          items:
+            type: string
+        bestCategory:
+          type: string
+        worstCategory:
+          type: string
+        bestCategoryScore:
+          type: number
+        worstCategoryScore:
+          type: number
+        categoryScores:
+          type: object
+          additionalProperties:
+            type: number
+        weightAdjustments:
+          type: object
+          additionalProperties:
+            type: number
+        learningNote:
+          type: string
+        createdAt:
+          type: string
+
+    LearningLogResponse:
+      type: object
+      required: [pasaran, log]
+      properties:
+        pasaran:
+          type: string
+        log:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningLogItem"
+
+    EnginePerformanceItem:
+      type: object
+      required: [key, category, avgScore, multiplier, trend, evaluationCount]
+      properties:
+        key:
+          type: string
+        category:
+          type: string
+        avgScore:
+          type: number
+        multiplier:
+          type: number
+        trend:
+          type: string
+        evaluationCount:
+          type: integer
+
+    WeightTableItem:
+      type: object
+      required: [key, category, multiplier, sampleSize]
+      properties:
+        key:
+          type: string
+        category:
+          type: string
+        multiplier:
+          type: number
+        sampleSize:
+          type: integer
+
+    EnginePerformanceResponse:
+      type: object
+      required: [pasaran, performance, weights]
+      properties:
+        pasaran:
+          type: string
+        performance:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnginePerformanceItem"
+        weights:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeightTableItem"
+
+    EvaluateInput:
+      type: object
+      properties:
+        pasaran:
+          type: string
+
+    EvaluateResult:
+      type: object
+      required: [evaluated, actualResult, hit4d, hit2d, hit3d, hitBbfs6, hitColokBebas]
+      properties:
+        evaluated:
+          type: boolean
+        actualResult:
+          type: string
+        hit4d:
+          type: boolean
+        hit2d:
+          type: boolean
+        hit3d:
+          type: boolean
+        hitBbfs6:
+          type: boolean
+        hitColokBebas:
+          type: boolean
+        learningNote:
+          type: string
+        bestCategory:
+          type: string
+        worstCategory:
+          type: string
+        categoryScores:
+          type: object
+          additionalProperties:
+            type: number
+
+    SlotEval:
+      type: object
+      required: [date, dayLabel, dow, slot, actual, actual2d, actual3d, main4d, confidence, hit4d, hit3d, hit2dTop1, hit2dTop5, hit2dTop10, hitColokBebas, hitBbfs, hitScore]
+      properties:
+        date:
+          type: string
+        dayLabel:
+          type: string
+        dow:
+          type: string
+        slot:
+          type: string
+        actual:
+          type: string
+        actual2d:
+          type: string
+        actual3d:
+          type: string
+        main4d:
+          type: string
+        pred2dTop5:
+          type: array
+          items:
+            type: string
+        pred2dTop10:
+          type: array
+          items:
+            type: string
+        pred3d:
+          type: array
+          items:
+            type: string
+        pred4d:
+          type: array
+          items:
+            type: string
+        colokBebas:
+          type: array
+          items:
+            type: string
+        bbfs5d:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+        hit4d:
+          type: boolean
+        hit3d:
+          type: boolean
+        hit2dTop1:
+          type: boolean
+        hit2dTop5:
+          type: boolean
+        hit2dTop10:
+          type: boolean
+        hitColokBebas:
+          type: boolean
+        hitBbfs:
+          type: boolean
+        hitScore:
+          type: integer
+
+    SlotSummary:
+      type: object
+      required: [slot, count, hit2dTop1, pct2dTop1, hit2dTop5, pct2dTop5, hit2dTop10, pct2dTop10, hit3d, pct3d, hit4d, pct4d, hitColok, pctColok, hitBbfs, pctBbfs, avgConf, streak2d, grade]
+      properties:
+        slot:
+          type: string
+        count:
+          type: integer
+        hit2dTop1:
+          type: integer
+        pct2dTop1:
+          type: number
+        hit2dTop5:
+          type: integer
+        pct2dTop5:
+          type: number
+        hit2dTop10:
+          type: integer
+        pct2dTop10:
+          type: number
+        hit3d:
+          type: integer
+        pct3d:
+          type: number
+        hit4d:
+          type: integer
+        pct4d:
+          type: number
+        hitColok:
+          type: integer
+        pctColok:
+          type: number
+        hitBbfs:
+          type: integer
+        pctBbfs:
+          type: number
+        avgConf:
+          type: number
+        streak2d:
+          type: integer
+        grade:
+          type: string
+
+    DayGroup:
+      type: object
+      required: [date, dayLabel, dow, evals, totalSlots, hit2dTop5, hit2dTop10, hitColok, hitBbfs, hit3d, pct2d, pctColok, pctBbfs, avgConf]
+      properties:
+        date:
+          type: string
+        dayLabel:
+          type: string
+        dow:
+          type: string
+        evals:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotEval"
+        totalSlots:
+          type: integer
+        hit2dTop5:
+          type: integer
+        hit2dTop10:
+          type: integer
+        hitColok:
+          type: integer
+        hitBbfs:
+          type: integer
+        hit3d:
+          type: integer
+        pct2d:
+          type: number
+        pctColok:
+          type: number
+        pctBbfs:
+          type: number
+        avgConf:
+          type: number
+
+    DowSummary:
+      type: object
+      required: [dow, count, hit2d, pct2d, pctColok, rank]
+      properties:
+        dow:
+          type: string
+        count:
+          type: integer
+        hit2d:
+          type: integer
+        pct2d:
+          type: number
+        pctColok:
+          type: number
+        rank:
+          type: integer
+
+    ConfBucket:
+      type: object
+      required: [label, count, hit2d, pct2d]
+      properties:
+        label:
+          type: string
+        count:
+          type: integer
+        hit2d:
+          type: integer
+        pct2d:
+          type: number
+
+    LaporanSummary:
+      type: object
+      required: [totalEvals, hit2dTop1, pct2dTop1, hit2dTop5, pct2dTop5, hit2dTop10, pct2dTop10, hit3d, pct3d, hit4d, pct4d, hitColok, pctColok, hitBbfs, pctBbfs, avgConf]
+      properties:
+        totalEvals:
+          type: integer
+        hit2dTop1:
+          type: integer
+        pct2dTop1:
+          type: number
+        hit2dTop5:
+          type: integer
+        pct2dTop5:
+          type: number
+        hit2dTop10:
+          type: integer
+        pct2dTop10:
+          type: number
+        hit3d:
+          type: integer
+        pct3d:
+          type: number
+        hit4d:
+          type: integer
+        pct4d:
+          type: number
+        hitColok:
+          type: integer
+        pctColok:
+          type: number
+        hitBbfs:
+          type: integer
+        pctBbfs:
+          type: number
+        avgConf:
+          type: number
+        bestSlot:
+          type: string
+        worstSlot:
+          type: string
+        bestDow:
+          type: string
+        worstDow:
+          type: string
+        trend:
+          type: string
+        trendDetail:
+          type: string
+
+    EngineAccuracyEntry:
+      type: object
+      required: [id, name, hitRate, evalCount, pct]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        hitRate:
+          type: number
+        evalCount:
+          type: integer
+        pct:
+          type: number
+
+    TrendDataItem:
+      type: object
+      required: [date, pct2d, pctColok, pct3d]
+      properties:
+        date:
+          type: string
+        pct2d:
+          type: number
+        pctColok:
+          type: number
+        pct3d:
+          type: number
+
+    AutoLogEntry:
+      type: object
+      required: [time, event, detail, type]
+      properties:
+        time:
+          type: string
+        event:
+          type: string
+        detail:
+          type: string
+        type:
+          type: string
+
+    LaporanData:
+      type: object
+      required: [pasaran, computedAt, computedInMs, days, summary, perSlot, daily, recentEvals, trendData, dowSummary, calibration, autoLog, recommendations, perEngineAccuracy]
+      properties:
+        pasaran:
+          type: string
+        computedAt:
+          type: string
+        computedInMs:
+          type: integer
+        days:
+          type: integer
+        summary:
+          $ref: "#/components/schemas/LaporanSummary"
+        perSlot:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotSummary"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/DayGroup"
+        recentEvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotEval"
+        trendData:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendDataItem"
+        dowSummary:
+          type: array
+          items:
+            $ref: "#/components/schemas/DowSummary"
+        calibration:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConfBucket"
+        autoLog:
+          type: array
+          items:
+            $ref: "#/components/schemas/AutoLogEntry"
+        recommendations:
+          type: array
+          items:
+            type: string
+        perEngineAccuracy:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngineAccuracyEntry"
+
+    LaporanLogResponse:
+      type: object
+      required: [log]
+      properties:
+        log:
+          type: array
+          items:
+            $ref: "#/components/schemas/AutoLogEntry"
+
+    ForceEvaluateInput:
+      type: object
+      properties:
+        pasaran:
+          type: string
+        days:
+          type: integer
+
+    SmartEngineOutput:
+      type: object
+      required: [id, name, weight, top5, confidence, scores2d]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        weight:
+          type: number
+        top5:
+          type: array
+          items:
+            type: string
+        confidence:
+          type: number
+        scores2d:
+          type: object
+          additionalProperties:
+            type: number
+
+    SmartColokJitu:
+      type: object
+      required: [posisi, digit]
+      properties:
+        posisi:
+          type: string
+        digit:
+          type: string
+
+    SmartRekomend:
+      type: object
+      required: [rank, number, score, label, color]
+      properties:
+        rank:
+          type: integer
+        number:
+          type: string
+        score:
+          type: number
+        label:
+          type: string
+        color:
+          type: string
+
+    SmartAIResult:
+      type: object
+      required: [pasaran, slot, analyzedAt, totalSlotDraws, lastResult, lastResultAt, overallConfidence, main4d]
+      properties:
+        pasaran:
+          type: string
+        slot:
+          type: string
+        analyzedAt:
+          type: string
+        totalSlotDraws:
+          type: integer
+        lastResult:
+          type: string
+        lastResultAt:
+          type: string
+        prevSlotResult:
+          type: string
+        overallConfidence:
+          type: number
+        main4d:
+          type: string
+        bbfs5d:
+          type: array
+          items:
+            type: string
+        pred4d:
+          type: array
+          items:
+            type: string
+        pred3d:
+          type: array
+          items:
+            type: string
+        pred2dEkor:
+          type: array
+          items:
+            type: string
+        pred2dDepan:
+          type: array
+          items:
+            type: string
+        pred2dTengah:
+          type: array
+          items:
+            type: string
+        colokBebas:
+          type: array
+          items:
+            type: string
+        colokBebas2d:
+          type: array
+          items:
+            type: string
+        colokJitu:
+          type: array
+          items:
+            $ref: "#/components/schemas/SmartColokJitu"
+        dasar:
+          type: string
+        tengahTepi:
+          type: string
+        silangHomo:
+          type: string
+        kembangKempis:
+          type: string
+        shio:
+          type: array
+          items:
+            type: string
+        bom2d:
+          type: string
+        topDigitKandidat:
+          type: array
+          items:
+            type: string
+        topRekomendasi:
+          type: array
+          items:
+            $ref: "#/components/schemas/SmartRekomend"
+        engines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SmartEngineOutput"
+
+    SlotCountItem:
+      type: object
+      required: [slot, count]
+      properties:
+        slot:
+          type: string
+        count:
+          type: integer
+
+    SmartAISlotsResponse:
+      type: object
+      required: [pasaran, slots, targetSlot]
+      properties:
+        pasaran:
+          type: string
+        targetSlot:
+          type: string
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/SlotCountItem"
+
+    EngineWeightInfo:
+      type: object
+      required: [id, name, defaultWeight, adaptiveWeight, hitRate, evalCount]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        defaultWeight:
+          type: number
+        adaptiveWeight:
+          type: number
+        hitRate:
+          type: number
+        evalCount:
+          type: integer
+
+    SmartAIWeightsResponse:
+      type: object
+      required: [pasaran, weights, hitRates, isAdaptive, detail]
+      properties:
+        pasaran:
+          type: string
+        weights:
+          type: object
+          additionalProperties:
+            type: number
+        hitRates:
+          type: object
+          additionalProperties:
+            type: number
+        evalCounts:
+          type: object
+          additionalProperties:
+            type: integer
+        isAdaptive:
+          type: boolean
+        lastUpdated:
+          type: ["string", "null"]
+        detail:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngineWeightInfo"

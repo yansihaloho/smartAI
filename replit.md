@@ -1,6 +1,6 @@
-# [Project name]
+# Smart AI Togel
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Self-learning lottery prediction system with 100+ AI engines for Macau and Hongkong pasarans.
 
 ## Run & Operate
 
@@ -9,7 +9,7 @@ _Replace the heading above with the project's name, and this line with one sente
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Required env: `DATABASE_URL` — Postgres connection string (auto-provisioned)
 
 ## Stack
 
@@ -19,18 +19,43 @@ _Replace the heading above with the project's name, and this line with one sente
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
 - Build: esbuild (CJS bundle)
+- Scraping: cheerio + node-fetch (masterlive.net for Macau, angkanets.org for HK)
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/api-server/src/lib/` — AI engine libraries
+  - `prediction-engine.ts` — 100 prediction engines (markov, gap, bayes, stat, pattern, nn, ts, shio, momentum)
+  - `smart-ai-engine.ts` — 7 Smart AI engines (A–G) slot-aware
+  - `smart-ai-weights.ts` — adaptive per-pasaran weights stored in DB
+  - `learning-engine.ts` — self-learning: evaluates predictions vs. actual results, adjusts weights
+  - `laporan-engine.ts` — LOO backtest report engine
+  - `deep-analysis.ts` — deep statistical analysis per time slot
+  - `scraper.ts` — scrapes historical draw data from web sources
+  - `scheduler.ts` — cron-style scheduler: auto-sync + predict on each draw slot
+- `artifacts/api-server/src/routes/` — Express route handlers (results, predict, deep, smart-ai, laporan)
+- `lib/db/src/schema/lottery.ts` — 6 DB tables (lottery_results, predictions, prediction_accuracy, engine_weights, smart_ai_weights, miss_analysis)
+- `lib/api-spec/openapi.yaml` — source-of-truth API contract (1520 lines)
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- **Contract-first API**: OpenAPI spec → Orval codegen → Zod schemas + React Query hooks
+- **Only macau and hongkong pasarans** — never sgp/hkg/sdy; validated at every entry point
+- **Out-of-sample scoring only**: predictions are never scored against data they were trained on; evaluateAndLearn only scores once a genuinely new draw arrives
+- **Honest failure over fake data**: scraper never fabricates results; endpoints return 422 if insufficient real draws exist
+- **Adaptive weights**: engine weights per pasaran update automatically via LOO backtest on every scheduler cycle
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Results**: fetch, sync, and query lottery draw history for Macau (6 slots/day) and HK (1 slot/day)
+- **Prediction**: run 100 AI engines with adaptive weights → 4D/3D/2D consensus + BBFS5/6 + Colok Bebas
+- **Smart AI**: slot-aware 7-engine analysis with per-slot draw history
+- **Deep Analysis**: time-slot statistical deep dive
+- **Laporan**: LOO backtest accuracy report per pasaran/slot
+- **Self-learning**: scheduler auto-runs after each draw slot, evaluates accuracy, updates weights
+
+## Scheduler
+
+Runs automatically on server start. For Macau: syncs + predicts at 00:01, 13:00, 16:00, 19:00, 22:00, 23:00 WIB. For HK Lotto: 23:00 WIB.
 
 ## User preferences
 
@@ -38,7 +63,10 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Always call `pnpm --filter @workspace/api-spec run codegen` after changing `lib/api-spec/openapi.yaml`
+- Always call `pnpm --filter @workspace/db run push` after changing `lib/db/src/schema/lottery.ts`
+- DB schema uses `periode` (text, unique) as natural dedup key for lottery_results
+- Scraper targets: masterlive.net (Macau), angkanets.org (HK)
 
 ## Pointers
 
