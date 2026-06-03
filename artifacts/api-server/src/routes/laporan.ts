@@ -10,11 +10,11 @@ import type { DrawRecord } from "../lib/smart-ai-engine";
 const router: IRouter = Router();
 
 const MACAU_SLOTS = ["00:01", "13:00", "16:00", "19:00", "22:00", "23:00"];
-const HK_SLOTS = ["23:00"];
 
 // GET /api/laporan?pasaran=macau&days=30
 router.get("/laporan", async (req, res): Promise<void> => {
-  const pasaran = (req.query.pasaran as string) || "macau";
+  const pasaran = "macau";
+  void req.query.pasaran;
   const days = Math.min(60, Math.max(7, parseInt(String(req.query.days ?? "30"), 10)));
 
   const cacheKey = `${pasaran}:${days}`;
@@ -26,7 +26,7 @@ router.get("/laporan", async (req, res): Promise<void> => {
   }
 
   try {
-    const slots = pasaran === "hongkong" ? HK_SLOTS : MACAU_SLOTS;
+    const slots = MACAU_SLOTS;
 
     // Load all draws grouped by slot in parallel
     const allDrawsBySlot: Record<string, DrawRecord[]> = {};
@@ -71,19 +71,19 @@ router.get("/laporan/log", (_req, res): void => {
 
 // POST /api/laporan/force-evaluate — invalidate cache + recompute
 router.post("/laporan/force-evaluate", async (req, res): Promise<void> => {
-  const pasaran = (req.body?.pasaran as string) || "macau";
+  const pasaran = "macau";
   const days = Math.min(60, Math.max(7, parseInt(String(req.body?.days ?? "30"), 10)));
 
   markLaporanDirty();
   addAutoLog({
     time: new Date().toISOString(),
     event: "Force evaluasi",
-    detail: `${pasaran.toUpperCase()} ${days} hari — dipicu manual`,
+    detail: `MACAU ${days} hari — dipicu manual`,
     type: "evaluate",
   });
 
   try {
-    const slots = pasaran === "hongkong" ? HK_SLOTS : MACAU_SLOTS;
+    const slots = MACAU_SLOTS;
     const allDrawsBySlot: Record<string, DrawRecord[]> = {};
 
     await Promise.all(slots.map(async (slot) => {

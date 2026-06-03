@@ -15,10 +15,11 @@ router.post("/deep/analyze", async (req, res): Promise<void> => {
   }
 
   const { pasaran } = parsed.data;
-  let { timeSlot } = parsed.data;
+  const { timeSlot } = parsed.data;
 
-  if (pasaran === "hongkong") {
-    timeSlot = timeSlot && timeSlot !== "ALL" ? "23:00" : undefined;
+  if (pasaran !== "macau") {
+    res.status(400).json({ error: "Hanya pasaran 'macau' yang didukung." });
+    return;
   }
 
   req.log.info({ pasaran, timeSlot }, "Running deep analysis — ALL draws");
@@ -77,7 +78,7 @@ router.post("/deep/analyze", async (req, res): Promise<void> => {
   }
 
   const lastResult = drawData[0]?.result4d ?? "0000";
-  const effectiveSlot = pasaran === "hongkong" ? "23:00" : (timeSlot ?? "ALL");
+  const effectiveSlot = timeSlot ?? "ALL";
 
   const result = runDeepAnalysis(drawData, pasaran, effectiveSlot, lastResult);
 

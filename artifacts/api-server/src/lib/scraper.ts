@@ -35,7 +35,6 @@ export interface PasaranInfo {
 
 const PASARAN_LIST: PasaranInfo[] = [
   { id: 1, nama: "Toto Macau", kode: "macau", jadwal: "00:01, 13:00, 16:00, 19:00, 22:00, 23:00" },
-  { id: 2, nama: "Hongkong Lotto", kode: "hongkong", jadwal: "23:00" },
 ];
 
 export function getPasaranList(): PasaranInfo[] {
@@ -44,20 +43,21 @@ export function getPasaranList(): PasaranInfo[] {
 
 const TIME_SLOTS = ["00:01", "13:00", "16:00", "19:00", "22:00", "23:00"] as const;
 
-async function fetchWithTimeout(url: string, timeoutMs = 20000): Promise<string> {
+async function fetchWithTimeout(url: string, timeoutMs = 25000): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       signal: controller.signal as any,
       headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
         "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
         "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
       },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
     return await res.text();
   } finally {
     clearTimeout(timer);
@@ -79,7 +79,6 @@ function parseMasterliveHtml(html: string, pasaran: string): GroupedDay[] {
     if (!hari || !tanggal) return;
 
     const tds: string[] = [];
-
     let next = $(el)[0].next;
     while (next && tds.length < 6) {
       if (next.type === "tag" && next.name === "td") {
@@ -137,10 +136,10 @@ function flattenGrouped(days: GroupedDay[], pasaran: string): ScrapedResult[] {
         tanggal: `${day.hari} ${day.tanggal} ${slot}`,
         periode,
         result4d: num,
-        as: num[0],
-        kop: num[1],
-        kepala: num[2],
-        ekor: num[3],
+        as: num[0] ?? "0",
+        kop: num[1] ?? "0",
+        kepala: num[2] ?? "0",
+        ekor: num[3] ?? "0",
       });
     }
   }
@@ -148,107 +147,31 @@ function flattenGrouped(days: GroupedDay[], pasaran: string): ScrapedResult[] {
   return results;
 }
 
-async function scrapeMacauHistorical(pasaran: string): Promise<{ days: GroupedDay[]; flat: ScrapedResult[] }> {
-  const url = "https://masterlive.net/data-totomacau-lengkap-2026.php";
-  logger.info({ url, pasaran }, "Scraping full historical data from masterlive.net");
-
-  try {
-    const html = await fetchWithTimeout(url);
-    const days = parseMasterliveHtml(html, pasaran);
-    logger.info({ count: days.length, pasaran }, "Parsed historical days from masterlive.net");
-    const flat = flattenGrouped(days, pasaran);
-    return { days, flat };
-  } catch (err) {
-    logger.warn({ err }, "Failed to scrape masterlive.net historical data");
-    return { days: [], flat: [] };
-  }
-}
-
-const HK_BASE_MONDAY_UTC = Date.UTC(2025, 6, 28);
-
-const MONTH_NAMES_ID = [
-  "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-  "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+// Try multiple URLs / years so the DB stays fresh when the site rolls over to a new year.
+const MASTERLIVE_URLS = [
+  "https://masterlive.net/data-totomacau-lengkap-2026.php",
+  "https://masterlive.net/data-totomacau-lengkap-2025.php",
 ];
-const DAY_NAMES_ID = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
-async function scrapeHkLottoHistorical(): Promise<{ days: GroupedDay[]; flat: ScrapedResult[] }> {
-  const url = "https://web.angkanets.org/data-keluaran-hongkong-lotto/";
-  logger.info({ url, pasaran: "hongkong" }, "Scraping HK Lotto from angkanets.org");
+async function scrapeMacauHistorical(pasaran: string): Promise<{ days: GroupedDay[]; flat: ScrapedResult[] }> {
+  let allDays: GroupedDay[] = [];
+  let allFlat: ScrapedResult[] = [];
 
-  try {
-    const html = await fetchWithTimeout(url, 25000);
-    const $ = cheerio.load(html);
-
-    const rows: string[][] = [];
-    $("table.tbpaitoharian tbody tr").each((_i, tr) => {
-      const tds: string[] = [];
-      $(tr).find("td").each((_j, td) => {
-        const txt = $(td).text().trim();
-        tds.push(txt && /^\d{4}$/.test(txt) ? txt : "");
-      });
-      if (tds.length === 7) rows.push(tds);
-    });
-
-    logger.info({ rowCount: rows.length }, "HK Lotto: parsed rows from angkanets.org");
-
-    const days: GroupedDay[] = [];
-    const flat: ScrapedResult[] = [];
-
-    for (let r = 0; r < rows.length; r++) {
-      const row = rows[r];
-      for (let c = 0; c < 7; c++) {
-        const num = row[c];
-        if (!num) continue;
-
-        const dayOffset = r * 7 + c;
-        const dateMs = HK_BASE_MONDAY_UTC + dayOffset * 86400000;
-        const d = new Date(dateMs);
-
-        const utcDay = d.getUTCDay();
-        const hariIdx = utcDay === 0 ? 6 : utcDay - 1;
-        const hari = DAY_NAMES_ID[hariIdx] ?? "Senin";
-        const dd = String(d.getUTCDate()).padStart(2, "0");
-        const mm = MONTH_NAMES_ID[d.getUTCMonth()] ?? "Januari";
-        const yyyy = d.getUTCFullYear();
-        const mmNum = String(d.getUTCMonth() + 1).padStart(2, "0");
-        const ddNum = dd;
-        const periode = `hk-${yyyy}${mmNum}${ddNum}`;
-        const tanggalKey = `${dd} ${mm} ${yyyy}`;
-
-        flat.push({
-          pasaran: "hongkong",
-          tanggal: `${hari} ${tanggalKey} 23:00`,
-          periode,
-          result4d: num,
-          as: num[0] ?? "0",
-          kop: num[1] ?? "0",
-          kepala: num[2] ?? "0",
-          ekor: num[3] ?? "0",
-        });
-
-        let dayEntry = days.find(day => day.tanggal === tanggalKey);
-        if (!dayEntry) {
-          dayEntry = {
-            hari,
-            tanggal: tanggalKey,
-            slots: { "00:01": null, "13:00": null, "16:00": null, "19:00": null, "22:00": null, "23:00": null },
-          };
-          days.push(dayEntry);
-        }
-        dayEntry.slots["23:00"] = num;
-      }
+  for (const url of MASTERLIVE_URLS) {
+    logger.info({ url, pasaran }, "Scraping full historical data from masterlive.net");
+    try {
+      const html = await fetchWithTimeout(url);
+      const days = parseMasterliveHtml(html, pasaran);
+      logger.info({ count: days.length, url, pasaran }, "Parsed historical days from masterlive.net");
+      const flat = flattenGrouped(days, pasaran);
+      allDays = [...allDays, ...days];
+      allFlat = [...allFlat, ...flat];
+    } catch (err) {
+      logger.warn({ err, url }, "Failed to scrape masterlive.net URL");
     }
-
-    flat.reverse();
-    days.reverse();
-
-    logger.info({ flatCount: flat.length, dayCount: days.length }, "HK Lotto: parsed results");
-    return { days, flat };
-  } catch (err) {
-    logger.warn({ err }, "Failed to scrape HK Lotto from angkanets.org");
-    return { days: [], flat: [] };
   }
+
+  return { days: allDays, flat: allFlat };
 }
 
 function isValidScraped(s: ScrapedResult): boolean {
@@ -291,7 +214,7 @@ function sanitizeScraped(results: ScrapedResult[]): ScrapedResult[] {
     out.push(s);
   }
   if (dropped > 0) {
-    logger.warn({ dropped, kept: out.length }, "Scraper: dropped invalid/duplicate rows during integrity check");
+    logger.warn({ dropped, kept: out.length }, "Scraper: dropped invalid/duplicate rows");
   }
   return out;
 }
@@ -309,7 +232,10 @@ function buildDaysFromFlat(flat: ScrapedResult[]): GroupedDay[] {
     if (!validSlots.has(slot)) continue;
     let day = byKey.get(tanggalKey);
     if (!day) {
-      day = { hari, tanggal: tanggalKey, slots: { "00:01": null, "13:00": null, "16:00": null, "19:00": null, "22:00": null, "23:00": null } };
+      day = {
+        hari, tanggal: tanggalKey,
+        slots: { "00:01": null, "13:00": null, "16:00": null, "19:00": null, "22:00": null, "23:00": null },
+      };
       byKey.set(tanggalKey, day);
       order.push(tanggalKey);
     }
@@ -319,9 +245,11 @@ function buildDaysFromFlat(flat: ScrapedResult[]): GroupedDay[] {
 }
 
 export async function scrapeAllHistorical(pasaran: string): Promise<{ days: GroupedDay[]; flat: ScrapedResult[] }> {
-  const raw = pasaran === "hongkong"
-    ? await scrapeHkLottoHistorical()
-    : await scrapeMacauHistorical(pasaran);
+  if (pasaran !== "macau") {
+    logger.warn({ pasaran }, "Scraper: only macau is supported");
+    return { days: [], flat: [] };
+  }
+  const raw = await scrapeMacauHistorical(pasaran);
   const flat = sanitizeScraped(raw.flat);
   return { days: buildDaysFromFlat(flat), flat };
 }

@@ -8,26 +8,20 @@ import { loadAllSmartAIWeights } from "./smart-ai-weights";
 import type { DrawRecord } from "./smart-ai-engine";
 import { logger } from "./logger";
 
+// Macau draw times (WIB = UTC+7)
 const MACAU_DRAW_TIMES_WIB: [number, number][] = [
   [0, 1], [13, 0], [16, 0], [19, 0], [22, 0], [23, 0],
 ];
 
-const HK_DRAW_TIME_WIB: [number, number] = [23, 0];
-
 const MACAU_SLOTS = ["00:01", "13:00", "16:00", "19:00", "22:00", "23:00"];
-const HK_SLOTS = ["23:00"];
 
-// Per-pasaran lock so concurrent draws/requests cannot interleave weight writes.
-const refreshLocks: Map<string, Promise<void>> = new Map();
-
-// Fixed training horizon — weights are always trained on the same window so the
-// adaptive state is deterministic regardless of what the UI requests.
+// Fixed training window — deterministic weight training regardless of UI requests
 const TRAIN_DAYS = 30;
 
-// Recompute laporan eagerly so Smart AI adaptive weights refresh after every sync.
-// This is the chain: sync → backtest (LOO) → updateSmartAIWeights → cached laporan.
+// Per-pasaran lock to prevent interleaved weight writes during concurrent draws
+const refreshLocks: Map<string, Promise<void>> = new Map();
+
 async function refreshLaporanAndWeights(pasaran: string, days = TRAIN_DAYS): Promise<void> {
-  // Serialize per pasaran: chain onto any in-flight refresh for the same market.
   const prev = refreshLocks.get(pasaran) ?? Promise.resolve();
   const run = prev.catch(() => {}).then(() => doRefreshLaporanAndWeights(pasaran, days));
   refreshLocks.set(pasaran, run);
@@ -40,10 +34,9 @@ async function refreshLaporanAndWeights(pasaran: string, days = TRAIN_DAYS): Pro
 
 async function doRefreshLaporanAndWeights(pasaran: string, days: number): Promise<void> {
   try {
-    const slots = pasaran === "hongkong" ? HK_SLOTS : MACAU_SLOTS;
     const allDrawsBySlot: Record<string, DrawRecord[]> = {};
 
-    await Promise.all(slots.map(async (slot) => {
+    await Promise.all(MACAU_SLOTS.map(async (slot) => {
       const rows = await db
         .select()
         .from(lotteryResultsTable)
@@ -67,7 +60,7 @@ async function doRefreshLaporanAndWeights(pasaran: string, days: number): Promis
 
     const data = computeLaporan(pasaran, allDrawsBySlot, days, { updateWeights: true });
     setCachedLaporan(`${pasaran}:${days}`, data);
-    logger.info({ pasaran, totalEvals: data.summary.totalEvals }, "Scheduler: laporan recomputed, Smart AI weights updated");
+    logger.info({ pasaran, totalEvals: data.summary.totalEvals, computedInMs: data.computedInMs }, "Scheduler: laporan recomputed, Smart AI weights updated");
   } catch (err) {
     logger.warn({ err, pasaran }, "Scheduler: laporan recompute failed");
   }
@@ -79,6 +72,7 @@ function nowWIBMins(): number {
   return d.getUTCHours() * 60 + d.getUTCMinutes();
 }
 
+// Returns ms until the next scheduled Macau draw slot
 function msUntilNextMacauDraw(): number {
   const nowMins = nowWIBMins();
   for (const [h, m] of MACAU_DRAW_TIMES_WIB) {
@@ -87,17 +81,9 @@ function msUntilNextMacauDraw(): number {
       return (slotMins - nowMins) * 60 * 1000;
     }
   }
-  return ((24 * 60 - nowMins) + 1) * 60 * 1000;
-}
-
-function msUntilHkDraw(): number {
-  const nowMins = nowWIBMins();
-  const [hh, mm] = HK_DRAW_TIME_WIB;
-  const slotMins = hh * 60 + mm;
-  if (slotMins > nowMins) {
-    return (slotMins - nowMins) * 60 * 1000;
-  }
-  return ((24 * 60 - nowMins) + slotMins) * 60 * 1000;
+  // Past 23:00 → wait for 00:01 next day
+  const minutesToMidnight = 24 * 60 - nowMins;
+  return (minutesToMidnight + 1) * 60 * 1000;
 }
 
 export async function syncMasterlive(pasaran = "macau"): Promise<number> {
@@ -133,7 +119,7 @@ export async function syncMasterlive(pasaran = "macau"): Promise<number> {
     addAutoLog({
       time: new Date().toISOString(),
       event: "Data sinkronisasi",
-      detail: `${pasaran.toUpperCase()} — ${synced} hasil baru masuk`,
+      detail: `${pasaran.toUpperCase()} — ${synced} hasil baru masuk dari masterlive.net`,
       type: "sync",
     });
   }
@@ -141,7 +127,6 @@ export async function syncMasterlive(pasaran = "macau"): Promise<number> {
   return synced;
 }
 
-// Run prediction with adaptive weights from self-learning system
 export async function autoPredict(pasaran = "macau"): Promise<boolean> {
   try {
     const rows = await db
@@ -150,8 +135,8 @@ export async function autoPredict(pasaran = "macau"): Promise<boolean> {
       .where(eq(lotteryResultsTable.pasaran, pasaran))
       .orderBy(desc(lotteryResultsTable.id));
 
-    if (rows.length < 5) {
-      logger.warn({ pasaran }, "Scheduler: not enough data for prediction");
+    if (rows.length < 10) {
+      logger.warn({ pasaran, available: rows.length }, "Scheduler: not enough data for prediction (min 10)");
       return false;
     }
 
@@ -163,17 +148,12 @@ export async function autoPredict(pasaran = "macau"): Promise<boolean> {
       ekor: r.ekor,
     }));
 
-    // Fetch adaptive weights from self-learning system
     const adaptiveWeights = await getAdaptiveWeights(pasaran);
     logger.info({ pasaran, weights: adaptiveWeights }, "Scheduler: using adaptive weights");
 
     const result = runAllEngines(drawData, pasaran, adaptiveWeights);
 
-    // rows are newest-first, so [0] is the latest draw this prediction saw. Record
-    // it as the look-ahead cutoff so evaluateAndLearn can score this scheduled
-    // prediction out-of-sample (only against a strictly newer draw). Without this,
-    // scheduler predictions — the primary automated flow — would never be eligible
-    // for honest evaluation.
+    // Record the data cutoff for honest out-of-sample evaluation later
     const dataCutoffPeriode = rows[0]?.periode ?? null;
 
     await db.insert(predictionsTable).values({
@@ -199,11 +179,11 @@ export async function autoPredict(pasaran = "macau"): Promise<boolean> {
   }
 }
 
-// Evaluate last prediction vs newly synced result, then generate fresh prediction with updated weights
 async function syncEvaluateAndPredict(pasaran: string): Promise<void> {
+  // Step 1: sync fresh data
   await syncMasterlive(pasaran);
 
-  // Step 1: evaluate last prediction vs actual result that just came in
+  // Step 2: evaluate last prediction vs actual result that just arrived
   const evalResult = await evaluateAndLearn(pasaran);
   if (evalResult.evaluated) {
     logger.info({
@@ -215,16 +195,16 @@ async function syncEvaluateAndPredict(pasaran: string): Promise<void> {
     }, "Scheduler: self-learning evaluation complete");
   }
 
-  // Step 2: generate new prediction using freshly updated adaptive weights
+  // Step 3: generate new prediction with updated adaptive weights
   await autoPredict(pasaran);
 
-  // Step 3: recompute laporan → refresh Smart AI 7-engine adaptive weights
+  // Step 4: recompute laporan → refresh Smart AI 7-engine adaptive weights
   await refreshLaporanAndWeights(pasaran);
 
   addAutoLog({
     time: new Date().toISOString(),
     event: "Prediksi diperbarui",
-    detail: `${pasaran.toUpperCase()} — engine weights disesuaikan, prediksi baru dibuat`,
+    detail: `MACAU — engine weights disesuaikan berdasarkan hasil aktual, prediksi baru dibuat`,
     type: "predict",
   });
 }
@@ -236,8 +216,7 @@ export function startScheduler(): void {
   schedulerRunning = true;
 
   void (async () => {
-    // Restore previously-trained Smart AI adaptive weights before any refresh,
-    // so a restart does not reset the 7-engine state back to defaults.
+    // Restore saved Smart AI adaptive weights first — prevents weight reset on restart
     await loadAllSmartAIWeights();
 
     try {
@@ -250,18 +229,6 @@ export function startScheduler(): void {
     } catch (err) {
       logger.warn({ err }, "Startup Macau sync/predict failed");
     }
-
-    try {
-      const hkSynced = await syncMasterlive("hongkong");
-      if (hkSynced > 0) {
-        await evaluateAndLearn("hongkong");
-      }
-      await autoPredict("hongkong");
-      await refreshLaporanAndWeights("hongkong");
-      logger.info({ hkSynced }, "Startup HK Lotto sync complete");
-    } catch (err) {
-      logger.warn({ err }, "Startup HK sync/predict failed");
-    }
   })();
 
   function scheduleMacauNext() {
@@ -269,6 +236,7 @@ export function startScheduler(): void {
     logger.info({ nextInMinutes: Math.round(delay / 60000) }, "Scheduler: next sync scheduled");
 
     setTimeout(async () => {
+      // Wait 2 minutes after draw time to ensure result is published
       await new Promise<void>(r => setTimeout(r, 2 * 60 * 1000));
       try {
         await syncEvaluateAndPredict("macau");
@@ -279,24 +247,7 @@ export function startScheduler(): void {
     }, delay);
   }
 
-  function scheduleHkNext() {
-    const delay = msUntilHkDraw();
-    logger.info({ nextInMinutes: Math.round(delay / 60000) }, "HK Scheduler: next sync scheduled");
-
-    setTimeout(async () => {
-      await new Promise<void>(r => setTimeout(r, 10 * 60 * 1000));
-      try {
-        await syncEvaluateAndPredict("hongkong");
-        logger.info("HK Lotto: daily sync + evaluate + predict complete");
-      } catch (err) {
-        logger.warn({ err }, "Scheduled HK sync failed");
-      }
-      scheduleHkNext();
-    }, delay);
-  }
-
   scheduleMacauNext();
-  scheduleHkNext();
 
-  logger.info("Scheduler started — Macau: 00:01/13:00/16:00/19:00/22:00/23:00 WIB | HK Lotto: 23:00 WIB");
+  logger.info("Scheduler started — Macau: 00:01/13:00/16:00/19:00/22:00/23:00 WIB");
 }

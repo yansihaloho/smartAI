@@ -7,52 +7,53 @@ import { getSmartAIWeightsState } from "../lib/smart-ai-weights";
 
 const router: IRouter = Router();
 
-const TIME_SLOTS_MACAU = ["00:01", "13:00", "16:00", "19:00", "22:00", "23:00"];
-const TIME_SLOTS_HK = ["23:00"];
-
-const VALID_PASARANS = ["macau", "hongkong"] as const;
+const MACAU_SLOTS = ["00:01", "13:00", "16:00", "19:00", "22:00", "23:00"];
+const VALID_PASARANS = ["macau"] as const;
 type ValidPasaran = typeof VALID_PASARANS[number];
 
-// Detect target slot based on current WIB time
-function detectTargetSlot(pasaran: string): string {
+// Detect the next upcoming Macau slot based on current WIB time
+function detectTargetSlot(): string {
   const now = new Date();
   const wibHour = (now.getUTCHours() + 7) % 24;
   const wibMin = now.getUTCMinutes();
   const wibTime = wibHour * 60 + wibMin;
 
-  if (pasaran === "hongkong") return "23:00";
-
-  // For Macau, find the NEXT upcoming slot
   const slotMinutes = [1, 13 * 60, 16 * 60, 19 * 60, 22 * 60, 23 * 60];
-  const slotNames = TIME_SLOTS_MACAU;
 
   for (let i = 0; i < slotMinutes.length; i++) {
     const slotMin = slotMinutes[i] ?? 0;
+    // Show next slot if we're within 30 min before or after draw time
     if (wibTime < slotMin + 30) {
-      return slotNames[i] ?? "13:00";
+      return MACAU_SLOTS[i] ?? "13:00";
     }
   }
-  // After 23:00 → next is 00:01 next day (but predict for 13:00 next day)
-  return "13:00";
+  // After 23:30 WIB → next day's first slot
+  return "00:01";
 }
 
-function todayDayOfWeek(): number {
+function todayDayOfWeekWIB(): number {
   const now = new Date();
   return new Date(now.getTime() + 7 * 3600 * 1000).getUTCDay();
 }
 
 // GET /api/smart-ai/analyze?pasaran=macau&slot=13:00
 router.get("/smart-ai/analyze", async (req, res): Promise<void> => {
-  const pasaranRaw = req.query.pasaran as string;
+  const pasaranRaw = (req.query.pasaran as string) || "macau";
   if (!VALID_PASARANS.includes(pasaranRaw as ValidPasaran)) {
-    res.status(400).json({ error: "Invalid pasaran", valid: VALID_PASARANS });
+    res.status(400).json({ error: "Pasaran tidak valid. Hanya 'macau' yang tersedia.", valid: VALID_PASARANS });
     return;
   }
   const pasaran = pasaranRaw as ValidPasaran;
-  const slot = (req.query.slot as string | undefined) ?? detectTargetSlot(pasaran);
+  const slot = (req.query.slot as string | undefined) ?? detectTargetSlot();
+
+  if (!MACAU_SLOTS.includes(slot)) {
+    res.status(400).json({
+      error: `Slot tidak valid: ${slot}. Gunakan salah satu: ${MACAU_SLOTS.join(", ")}`,
+    });
+    return;
+  }
 
   try {
-    // Get slot-filtered draws from DB (newest first)
     const slotPattern = `%${slot}%`;
     const allSlotRows = await db
       .select()
@@ -74,26 +75,21 @@ router.get("/smart-ai/analyze", async (req, res): Promise<void> => {
       ekor: r.ekor,
     }));
 
-    // Honest failure: the 7 Smart AI engines need real history per slot to produce
-    // meaningful candidates. Below the minimum we return an explicit 422 instead of
-    // emitting low-confidence guesses on insufficient data.
     const MIN_SLOT_DRAWS = 5;
     if (slotDraws.length < MIN_SLOT_DRAWS) {
       req.log.warn({ pasaran, slot, available: slotDraws.length }, "SmartAI: insufficient slot data");
       res.status(422).json({
-        error: `Data tidak cukup untuk Smart AI ${pasaran.toUpperCase()} slot ${slot} — minimal ${MIN_SLOT_DRAWS} hasil dibutuhkan, baru tersedia ${slotDraws.length}. Sinkronkan data terlebih dahulu.`,
+        error: `Data tidak cukup untuk Smart AI slot ${slot} — minimal ${MIN_SLOT_DRAWS} hasil dibutuhkan, tersedia ${slotDraws.length}. Sync data terlebih dahulu.`,
       });
       return;
     }
 
-    // Get previous slot result (for transition analysis)
+    // Get previous slot result for transition analysis
     let prevSlotResult = "";
-    const availableSlots = pasaran === "hongkong" ? TIME_SLOTS_HK : TIME_SLOTS_MACAU;
-    const slotIdx = availableSlots.indexOf(slot);
+    const slotIdx = MACAU_SLOTS.indexOf(slot);
 
     if (slotIdx > 0) {
-      // Previous slot on same day (same tanggal prefix)
-      const prevSlot = availableSlots[slotIdx - 1] ?? "";
+      const prevSlot = MACAU_SLOTS[slotIdx - 1] ?? "";
       if (prevSlot) {
         const [prevRow] = await db
           .select({ result4d: lotteryResultsTable.result4d })
@@ -107,8 +103,8 @@ router.get("/smart-ai/analyze", async (req, res): Promise<void> => {
         prevSlotResult = prevRow?.result4d ?? "";
       }
     } else {
-      // For first slot of day, use last draw from yesterday's last slot
-      const lastSlot = availableSlots[availableSlots.length - 1] ?? "";
+      // First slot of day → use last draw from yesterday's last slot
+      const lastSlot = MACAU_SLOTS[MACAU_SLOTS.length - 1] ?? "";
       if (lastSlot) {
         const [prevRow] = await db
           .select({ result4d: lotteryResultsTable.result4d })
@@ -123,26 +119,23 @@ router.get("/smart-ai/analyze", async (req, res): Promise<void> => {
       }
     }
 
-    const dow = todayDayOfWeek();
+    const dow = todayDayOfWeekWIB();
     const result = runSmartAI(pasaran, slot, slotDraws, prevSlotResult, dow);
 
     req.log.info({ pasaran, slot, draws: slotDraws.length, confidence: result.overallConfidence }, "SmartAI analyze complete");
     res.json(result);
   } catch (err) {
     req.log.error({ err, pasaran, slot }, "SmartAI analyze failed");
-    res.status(500).json({ error: "Analysis failed" });
+    res.status(500).json({ error: "Analisis gagal, coba lagi" });
   }
 });
 
-// GET /api/smart-ai/slots?pasaran=macau — list available slots with draw counts
+// GET /api/smart-ai/slots?pasaran=macau — list slots with draw counts + active slot info
 router.get("/smart-ai/slots", async (req, res): Promise<void> => {
-  const pasaranRaw = (req.query.pasaran as string) || "macau";
-  const pasaran = pasaranRaw as "macau" | "hongkong";
+  const pasaran = "macau";
 
   try {
-    const slots = pasaran === "hongkong" ? TIME_SLOTS_HK : TIME_SLOTS_MACAU;
-
-    const slotCounts = await Promise.all(slots.map(async (slot) => {
+    const slotCounts = await Promise.all(MACAU_SLOTS.map(async (slot) => {
       const rows = await db
         .select({ id: lotteryResultsTable.id })
         .from(lotteryResultsTable)
@@ -153,7 +146,7 @@ router.get("/smart-ai/slots", async (req, res): Promise<void> => {
       return { slot, count: rows.length };
     }));
 
-    const targetSlot = detectTargetSlot(pasaran);
+    const targetSlot = detectTargetSlot();
 
     res.json({
       pasaran,
@@ -162,13 +155,14 @@ router.get("/smart-ai/slots", async (req, res): Promise<void> => {
     });
   } catch (err) {
     req.log.error({ err }, "SmartAI slots failed");
-    res.status(500).json({ error: "Failed to fetch slot info" });
+    res.status(500).json({ error: "Gagal mengambil info slot" });
   }
 });
 
 // GET /api/smart-ai/weights?pasaran=macau — current adaptive engine weights
 router.get("/smart-ai/weights", (req, res): void => {
-  const pasaran = (req.query.pasaran as string) || "macau";
+  const pasaran = "macau";
+  void req;
   res.json(getSmartAIWeightsState(pasaran));
 });
 
