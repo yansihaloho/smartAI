@@ -1,0 +1,1 @@
+- [BBFS Engine Design](bbfs-engine-design.md) — BBFS-first V4 architecture: each engine outputs bbfsScore[10], 5-layer aggregation in buildConsensus, slot-aware via periode suffix filter.

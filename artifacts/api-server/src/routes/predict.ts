@@ -158,7 +158,8 @@ router.post("/predict", async (req, res): Promise<void> => {
   // not see — only then is a predictionAccuracy row written.
   void predictionId;
 
-  res.json(RunPredictionResponse.parse(result));
+  // Attach slot to response so client knows which slot this prediction is for
+  res.json(RunPredictionResponse.parse({ ...result, slot: targetSlot ?? undefined }));
 });
 
 // GET /api/predict/latest
