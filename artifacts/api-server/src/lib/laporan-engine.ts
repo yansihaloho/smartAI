@@ -278,8 +278,9 @@ export function computeLaporan(
       const hit2dTop5 = top5.includes(actual2d);
       const hit2dTop10 = top10.includes(actual2d);
       const hitColokBebas = result.colokBebas.some(d => actual.result4d.includes(d));
+      // BBFS hit = every digit of the actual 4D result is covered by the bbfs set
       const hitBbfs = result.bbfs5d.length >= 4
-        ? result.bbfs5d.every(d => actual.result4d.includes(d))
+        ? actual.result4d.split("").every(d => result.bbfs5d.includes(d))
         : false;
 
       const hitScore =
