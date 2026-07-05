@@ -30,6 +30,7 @@ export interface TopEngineItem {
 
 export interface PredictionOutput {
   pasaran: string;
+  slot?: string;
   generatedAt: string;
   totalDrawsUsed: number;
   engines: EngineOutput[];
@@ -39,6 +40,7 @@ export interface PredictionOutput {
   colokBebas: string[];
   bbfs5: string[];
   bbfs6: string[];
+  bbfs7: string[];
   overallConfidence: number;
   engineSummary: Record<string, number>;
   explanations: string[];
@@ -558,8 +560,49 @@ function buildConsensus(pasaran: string, engines: EngineOutput[], data: DrawData
   const consensus2d = scored2d.slice(0, 10).map(x => x.num);
 
   const colokBebas = topDigits.ekor.slice(0, 5);
-  const bbfs5 = [...new Set([...topDigits.kepala.slice(0, 3), ...topDigits.ekor.slice(0, 3)])].slice(0, 5);
-  const bbfs6 = [...new Set([...topDigits.as.slice(0, 2), ...topDigits.kepala.slice(0, 2), ...topDigits.ekor.slice(0, 3)])].slice(0, 6);
+
+  // === BBFS Algorithm: Global Weighted Digit Scoring ===
+  // Each digit 0-9 gets a global score = weighted sum across ALL 4 positions
+  // Position weights reflect importance: ekor (40%), kepala (30%), kop (15%), as (15%)
+  // Rank weights: top-1 pick = 1.0, top-2 = 0.5, top-3 = 0.25
+  // This ensures BBFS digits maximize coverage of the winning 4D result
+  const POS_WEIGHTS: Record<Position, number> = { ekor: 0.40, kepala: 0.30, kop: 0.15, as: 0.15 };
+  const globalDigitScore = new Array(10).fill(0);
+
+  engines.forEach((engine) => {
+    const engineEffectiveWeight = engine.weight * engine.confidence;
+    for (const pos of POSITIONS) {
+      const posW = POS_WEIGHTS[pos];
+      engine.digits[pos].forEach((digit, rank) => {
+        const d = parseInt(digit, 10);
+        if (!isNaN(d)) {
+          const rankW = rank === 0 ? 1.0 : rank === 1 ? 0.5 : 0.25;
+          globalDigitScore[d] += engineEffectiveWeight * posW * rankW;
+        }
+      });
+    }
+  });
+
+  // Also boost digits that appear frequently in recent slot draws (last 30)
+  if (data.length > 0) {
+    const recentWindow = data.slice(0, Math.min(30, data.length));
+    for (const pos of POSITIONS) {
+      const posW = POS_WEIGHTS[pos];
+      const recentFreq = digitFreq(recentWindow, pos);
+      recentFreq.forEach((freq, d) => {
+        globalDigitScore[d] += (freq / recentWindow.length) * posW * 0.3;
+      });
+    }
+  }
+
+  // Sort digits by global score descending, get indices
+  const rankedDigits = globalDigitScore
+    .map((score, digit) => ({ digit: String(digit), score }))
+    .sort((a, b) => b.score - a.score);
+
+  const bbfs5 = rankedDigits.slice(0, 5).map(x => x.digit);
+  const bbfs6 = rankedDigits.slice(0, 6).map(x => x.digit);
+  const bbfs7 = rankedDigits.slice(0, 7).map(x => x.digit);
 
   const overallConfidence = engines.reduce((a, e) => a + e.confidence * e.weight, 0) / totalWeight;
 
@@ -609,6 +652,7 @@ function buildConsensus(pasaran: string, engines: EngineOutput[], data: DrawData
     colokBebas,
     bbfs5,
     bbfs6,
+    bbfs7,
     overallConfidence,
     engineSummary,
     explanations,

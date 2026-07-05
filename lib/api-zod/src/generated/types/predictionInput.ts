@@ -8,5 +8,6 @@
 
 export interface PredictionInput {
   pasaran: string;
+  slot?: string;
   limit?: number;
 }

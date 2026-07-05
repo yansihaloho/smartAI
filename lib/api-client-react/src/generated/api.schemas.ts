@@ -146,6 +146,7 @@ export type PredictionResultEngineSummary = {[key: string]: number};
 
 export interface PredictionResult {
   pasaran: string;
+  slot?: string;
   generatedAt: string;
   totalDrawsUsed?: number;
   engines: EngineItem[];
@@ -155,6 +156,7 @@ export interface PredictionResult {
   colokBebas: string[];
   bbfs5: string[];
   bbfs6: string[];
+  bbfs7: string[];
   overallConfidence: number;
   engineSummary?: PredictionResultEngineSummary;
   explanations?: string[];
@@ -164,6 +166,7 @@ export interface PredictionResult {
 
 export interface PredictionInput {
   pasaran: string;
+  slot?: string;
   limit?: number;
 }
 

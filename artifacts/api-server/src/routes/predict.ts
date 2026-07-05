@@ -54,14 +54,14 @@ router.post("/predict", async (req, res): Promise<void> => {
     return;
   }
 
-  const { pasaran } = parsed.data;
-  req.log.info({ pasaran }, "Running AI prediction with adaptive weights — ALL draws");
+  const { pasaran, slot } = parsed.data;
+  req.log.info({ pasaran, slot }, "Running AI prediction with adaptive weights — slot-aware");
+
+  // Valid Macau slots
+  const VALID_SLOTS = ["00:01", "13:00", "16:00", "19:00", "22:00", "23:00"];
+  const targetSlot = slot && VALID_SLOTS.includes(slot) ? slot : null;
 
   let drawData: Array<{ as: string; kop: string; kepala: string; ekor: string; result4d: string }> = [];
-  // The periode of the most recent draw included in the data the engines see.
-  // Stored on the prediction so evaluateAndLearn can prove out-of-sample scoring:
-  // a prediction is only ever evaluated against a result whose periode is NEWER
-  // than this cutoff (i.e. a draw it could not have seen).
   let dataCutoffPeriode: string | null = null;
 
   try {
@@ -72,15 +72,25 @@ router.post("/predict", async (req, res): Promise<void> => {
       .orderBy(desc(lotteryResultsTable.periode));
 
     if (dbRows.length >= 10) {
-      drawData = dbRows.map((r) => ({
+      // Filter by slot if specified: periode format = "YYYYMMDD-HHMM"
+      // slot "13:00" → matches periode ending in "-1300"
+      const filtered = targetSlot
+        ? dbRows.filter(r => {
+            const slotSuffix = targetSlot.replace(":", "");
+            return r.periode.endsWith(`-${slotSuffix}`);
+          })
+        : dbRows;
+
+      const useRows = filtered.length >= 10 ? filtered : dbRows;
+      drawData = useRows.map((r) => ({
         result4d: r.result4d,
         as: r.as,
         kop: r.kop,
         kepala: r.kepala,
         ekor: r.ekor,
       }));
-      dataCutoffPeriode = dbRows[0]?.periode ?? null;
-      req.log.info({ pasaran, totalDraws: dbRows.length }, "Loaded ALL draws from DB for prediction");
+      dataCutoffPeriode = useRows[0]?.periode ?? null;
+      req.log.info({ pasaran, slot: targetSlot, totalDraws: useRows.length }, "Loaded draws from DB for prediction");
     }
   } catch (err) {
     req.log.warn({ err }, "DB fetch failed, scraping");
@@ -122,6 +132,7 @@ router.post("/predict", async (req, res): Promise<void> => {
   try {
     const [inserted] = await db.insert(predictionsTable).values({
       pasaran,
+      slot: targetSlot ?? undefined,
       dataCutoffPeriode,
       consensus4d: result.consensus4d,
       consensus3d: result.consensus3d,
@@ -129,6 +140,7 @@ router.post("/predict", async (req, res): Promise<void> => {
       colokBebas: result.colokBebas,
       bbfs5: result.bbfs5,
       bbfs6: result.bbfs6,
+      bbfs7: result.bbfs7,
       overallConfidence: result.overallConfidence,
       enginesJson: JSON.stringify(result.engines),
       explanationsJson: JSON.stringify(result.explanations),
@@ -207,6 +219,7 @@ router.get("/predict/latest", async (req, res): Promise<void> => {
 
     const result = {
       pasaran: row.pasaran,
+      slot: row.slot ?? undefined,
       generatedAt: row.generatedAt.toISOString(),
       totalDrawsUsed,
       engines,
@@ -216,6 +229,7 @@ router.get("/predict/latest", async (req, res): Promise<void> => {
       colokBebas: row.colokBebas,
       bbfs5: row.bbfs5,
       bbfs6: row.bbfs6,
+      bbfs7: row.bbfs7 ?? [],
       overallConfidence: row.overallConfidence,
       engineSummary,
       explanations,

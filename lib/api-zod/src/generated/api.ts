@@ -113,6 +113,7 @@ export const GetLatestPredictionQueryParams = zod.object({
 
 export const GetLatestPredictionResponse = zod.object({
   "pasaran": zod.string(),
+  "slot": zod.string().optional(),
   "generatedAt": zod.string(),
   "totalDrawsUsed": zod.number().optional(),
   "engines": zod.array(zod.object({
@@ -134,6 +135,7 @@ export const GetLatestPredictionResponse = zod.object({
   "colokBebas": zod.array(zod.string()),
   "bbfs5": zod.array(zod.string()),
   "bbfs6": zod.array(zod.string()),
+  "bbfs7": zod.array(zod.string()),
   "overallConfidence": zod.number(),
   "engineSummary": zod.record(zod.string(), zod.number()).optional(),
   "explanations": zod.array(zod.string()).optional(),
@@ -154,11 +156,13 @@ export const GetLatestPredictionResponse = zod.object({
  */
 export const RunPredictionBody = zod.object({
   "pasaran": zod.string(),
+  "slot": zod.string().optional(),
   "limit": zod.number().optional()
 })
 
 export const RunPredictionResponse = zod.object({
   "pasaran": zod.string(),
+  "slot": zod.string().optional(),
   "generatedAt": zod.string(),
   "totalDrawsUsed": zod.number().optional(),
   "engines": zod.array(zod.object({
@@ -180,6 +184,7 @@ export const RunPredictionResponse = zod.object({
   "colokBebas": zod.array(zod.string()),
   "bbfs5": zod.array(zod.string()),
   "bbfs6": zod.array(zod.string()),
+  "bbfs7": zod.array(zod.string()),
   "overallConfidence": zod.number(),
   "engineSummary": zod.record(zod.string(), zod.number()).optional(),
   "explanations": zod.array(zod.string()).optional(),

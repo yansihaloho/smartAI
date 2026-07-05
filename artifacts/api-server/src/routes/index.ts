@@ -5,6 +5,7 @@ import predictRouter from "./predict";
 import deepRouter from "./deep";
 import smartAiRouter from "./smart-ai";
 import laporanRouter from "./laporan";
+import learningRouter from "./learning";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(predictRouter);
 router.use(deepRouter);
 router.use(smartAiRouter);
 router.use(laporanRouter);
+router.use(learningRouter);
 
 export default router;

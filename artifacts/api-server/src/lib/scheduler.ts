@@ -165,6 +165,7 @@ export async function autoPredict(pasaran = "macau"): Promise<boolean> {
       colokBebas: result.colokBebas,
       bbfs5: result.bbfs5,
       bbfs6: result.bbfs6,
+      bbfs7: result.bbfs7,
       overallConfidence: result.overallConfidence,
       enginesJson: JSON.stringify(result.engines),
       explanationsJson: JSON.stringify(result.explanations),

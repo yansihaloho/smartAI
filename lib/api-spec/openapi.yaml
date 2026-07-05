@@ -622,9 +622,11 @@ components:
 
     PredictionResult:
       type: object
-      required: [pasaran, generatedAt, consensus4d, consensus3d, consensus2d, colokBebas, bbfs5, bbfs6, overallConfidence, engines]
+      required: [pasaran, generatedAt, consensus4d, consensus3d, consensus2d, colokBebas, bbfs5, bbfs6, bbfs7, overallConfidence, engines]
       properties:
         pasaran:
+          type: string
+        slot:
           type: string
         generatedAt:
           type: string
@@ -658,6 +660,10 @@ components:
           type: array
           items:
             type: string
+        bbfs7:
+          type: array
+          items:
+            type: string
         overallConfidence:
           type: number
         engineSummary:
@@ -682,6 +688,8 @@ components:
       required: [pasaran]
       properties:
         pasaran:
+          type: string
+        slot:
           type: string
         limit:
           type: integer
