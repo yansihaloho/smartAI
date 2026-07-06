@@ -248,8 +248,13 @@ export async function evaluateAndLearn(pasaran: string): Promise<{
     const hit4d = prediction.consensus4d.includes(actual4d);
     const hit3d = prediction.consensus3d.includes(actual4d.slice(1));
     const hit2d = prediction.consensus2d.includes(actual4d.slice(2));
-    const hitBbfs6 = actual4d.split("").every(d => prediction.bbfs6.includes(d));
+    // BBFS hit = every digit of actual 4D is covered by the BBFS set
+    const digits4d = actual4d.split("");
+    const hitBbfs5 = prediction.bbfs5.length >= 4 ? digits4d.every(d => prediction.bbfs5.includes(d)) : false;
+    const hitBbfs6 = prediction.bbfs6.length >= 4 ? digits4d.every(d => prediction.bbfs6.includes(d)) : false;
+    const hitBbfs7 = (prediction.bbfs7 ?? []).length >= 4 ? digits4d.every(d => (prediction.bbfs7 ?? []).includes(d)) : false;
     const hitColokBebas = prediction.colokBebas.includes(actual4d[3] ?? "");
+    const predSlot = prediction.slot ?? null;
 
     const asHit = prediction.consensus4d.some(n => n[0] === actual.as);
     const kopHit = prediction.consensus4d.some(n => n[1] === actual.kop);
@@ -331,9 +336,13 @@ export async function evaluateAndLearn(pasaran: string): Promise<{
     await db.insert(missAnalysisTable).values({
       pasaran,
       predictionId: prediction.id,
+      slot: predSlot,
       actualResult: actual4d,
       predicted4dTop5: prediction.consensus4d.slice(0, 5),
       predicted2dTop5: prediction.consensus2d.slice(0, 5),
+      bbfs5: prediction.bbfs5 ?? [],
+      bbfs6: prediction.bbfs6 ?? [],
+      bbfs7: prediction.bbfs7 ?? [],
       asHit,
       kopHit,
       kepalaHit,
@@ -341,7 +350,9 @@ export async function evaluateAndLearn(pasaran: string): Promise<{
       hit2d,
       hit3d,
       hit4d,
+      hitBbfs5,
       hitBbfs6,
+      hitBbfs7,
       hitColokBebas,
       bestCategory: bestCat.key,
       bestCategoryScore: bestCat.score,
